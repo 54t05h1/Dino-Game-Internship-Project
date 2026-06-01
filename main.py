@@ -13,6 +13,9 @@ pygame.init()
 screen = pygame.display.set_mode((800, 400))
 clock = pygame.time.Clock()
 running = True  # Pygame main loop, kills pygame when False
+SCREEN_WIDTH = 800
+SCREEN_HEIGHT = 400
+MIN_EGG_DISTANCE = SCREEN_WIDTH // 3
 player_score = 0.0
 
 # Game state variables
@@ -36,26 +39,55 @@ big_egg_surf = pygame.transform.scale(
     egg_surf,
     (int(egg_surf.get_width() * 1.6), int(egg_surf.get_height() * 1.6)),
 )
-egg_rect = egg_surf.get_rect(bottomleft=(800, GROUND_Y))
-current_egg_surf = egg_surf
+eggs = []
 game_start_time = pygame.time.get_ticks()
 on_double_jump = 0
+egg_spawn_counter = 0
 
 
 def spawn_egg():
     # added feature: there is a chance of spawning bigger eggs
     # the probability increases as the game progresses
-    global current_egg_surf, egg_rect
+    global eggs
 
     elapsed_seconds = (pygame.time.get_ticks() - game_start_time) / 1000
     oversized_egg_chance = 0 if player_score > 1000 else min(0.1 + elapsed_seconds * 0.005, 0.65)
 
-    if random.random() < oversized_egg_chance:
-        current_egg_surf = big_egg_surf
-    else:
-        current_egg_surf = egg_surf
+    egg_sprite = big_egg_surf if random.random() < oversized_egg_chance else egg_surf
+    egg_rect = egg_sprite.get_rect(bottomleft=(SCREEN_WIDTH, GROUND_Y))
+    eggs.append({"surf": egg_sprite, "rect": egg_rect})
 
-    egg_rect = current_egg_surf.get_rect(bottomleft=(800, GROUND_Y))
+
+def move_eggs():
+    global eggs
+
+    game_speed = get_game_speed()
+    for egg in eggs:
+        egg["rect"].x -= game_speed
+
+    eggs = [egg for egg in eggs if egg["rect"].right > 0]
+
+
+def can_spawn_egg():
+    if not eggs:
+        return True
+
+    rightmost_egg = max(eggs, key=lambda egg: egg["rect"].right)
+    return rightmost_egg["rect"].right <= SCREEN_WIDTH - MIN_EGG_DISTANCE
+
+
+def get_spawn_interval_frames():
+    score_for_spawn = max(player_score, 1)
+    return max(12, int(80 - 18 * math.log(score_for_spawn, 10)))
+
+
+def maybe_spawn_egg():
+    global egg_spawn_counter
+
+    egg_spawn_counter += 1
+    if egg_spawn_counter >= get_spawn_interval_frames() and can_spawn_egg():
+        spawn_egg()
+        egg_spawn_counter = 0
 
 
 def update_score_surface():
@@ -80,7 +112,10 @@ def get_score_step():
 def is_player_directly_above_egg():
     # detects if the player is directly above the egg
     # - you will know why we need this later
-    return player_rect.centerx >= egg_rect.left and player_rect.centerx <= egg_rect.right
+    return any(egg["rect"].left <= player_rect.centerx <= egg["rect"].right for egg in eggs)
+
+
+spawn_egg()
 
 
 while running:
@@ -110,6 +145,8 @@ while running:
                 update_score_surface()
                 is_playing = True
                 game_start_time = pygame.time.get_ticks()
+                eggs = []
+                egg_spawn_counter = 0
                 spawn_egg()
 
     if is_playing:
@@ -122,11 +159,11 @@ while running:
         pygame.draw.rect(screen, "#c0e8ec", score_rect, 10)
         screen.blit(score_surf, score_rect)
 
-        # Adjust egg's horizontal location then blit it
-        egg_rect.x -= get_game_speed()
-        if egg_rect.right <= 0:
-            spawn_egg()
-        screen.blit(current_egg_surf, egg_rect)
+        # Adjust eggs' horizontal locations then blit them
+        move_eggs()
+        maybe_spawn_egg()
+        for egg in eggs:
+            screen.blit(egg["surf"], egg["rect"])
 
         # Adjust player's vertical location then blit it
         players_gravity_speed += 1
@@ -142,7 +179,7 @@ while running:
             player_score = max(0, player_score - get_score_step())
             update_score_surface()
         # When player collides with enemy, game ends
-        if egg_rect.colliderect(player_rect):
+        if any(egg["rect"].colliderect(player_rect) for egg in eggs):
             is_playing = False
 
     # When game is over, display game over message
