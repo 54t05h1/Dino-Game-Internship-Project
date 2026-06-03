@@ -43,7 +43,7 @@ GROUND_SURF = pygame.image.load("graphics/level/ground.png").convert()
 game_font = pygame.font.Font(pygame.font.get_default_font(), 50)
 title_font = pygame.font.Font(pygame.font.get_default_font(), 64)
 body_font = pygame.font.Font(pygame.font.get_default_font(), 28)
-small_font = pygame.font.Font(pygame.font.get_default_font(), 20)
+small_font = pygame.font.Font(pygame.font.get_default_font(), 15)
 score_surf = game_font.render(f"SCORE: {player_score}", False, "Black")
 score_rect = score_surf.get_rect(center=(400, 50))
 
@@ -91,6 +91,10 @@ def start_game():
     has_shown_stamina_tutorial = True
     stamina_tutorial_end_time = pygame.time.get_ticks() + 10000
 
+def draw_text(text,font,x,y,color = "black"):
+    text_surf = font.render(text, True, color)
+    text_rect = text_surf.get_rect(center=(x, y))
+    screen.blit(text_surf, text_rect)
 
 def draw_centered_text(text, font, y, color="black"):
     text_surf = font.render(text, True, color)
@@ -129,7 +133,7 @@ def update_score_surface():
     global score_surf, score_rect, stamina_current
 
     score_surf = game_font.render(f"SCORE: {int(player_score)}", False, "Black")
-    score_rect = score_surf.get_rect(center=(400, 50))
+    score_rect = score_surf.get_rect(center=(600, 50))
     stamina_current = min(stamina_current, get_max_stamina())
 
 
@@ -222,8 +226,8 @@ def draw_game_over_screen():
 
 
 def draw_stamina_tutorial():
-    tutorial_rect = pygame.Rect(14, 54, 332, 92)
-    draw_panel(tutorial_rect, fill_color=(18, 18, 18, 225), border_color="#ffd86b")
+    tutorial_rect = pygame.Rect(14, 54, 290, 92)
+    draw_panel(tutorial_rect, fill_color=(18, 18, 18, 225), border_color="#8f8f8f")
     pygame.draw.rect(
         screen,
         "#ffd86b",
@@ -231,8 +235,9 @@ def draw_stamina_tutorial():
         2,
         border_radius=8,
     )
-    draw_centered_text("These boxes are stamina", small_font, 78, "white")
-    draw_centered_text("Jumping uses one. Standing on the ground refills them.", small_font, 106, "#e9e9e9")
+    draw_text("These boxes are stamina", small_font, 160,78, "white")
+    draw_text("Jumping uses one.", small_font, 160,102, "#e9e9e9")
+    draw_text("Staying on the ground refills them.", small_font, 160, 124, "#e9e9e9")
 
 
 while running:
