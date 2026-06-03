@@ -29,7 +29,10 @@ STAMINA_BAR_HEIGHT = 18
 STAMINA_BAR_GAP = 4
 
 # Game state variables
-game_state = "intro1"  # intro, playing, game_over
+game_state = "intro"  # intro, playing, game_over
+show_stamina_tutorial = False
+stamina_tutorial_end_time = 0
+has_shown_stamina_tutorial = False
 GROUND_Y = 300  # The Y-coordinate of the ground level
 JUMP_GRAVITY_START_SPEED = -17  # The speed at which the player jumps
 players_gravity_speed = 0  # The current speed at which the player falls
@@ -72,7 +75,8 @@ def reset_player_position():
 
 def start_game():
     global player_score, stamina_current, stamina_recovery_counter, game_start_time
-    global game_state, game_over_score
+    global game_state, game_over_score, show_stamina_tutorial
+    global stamina_tutorial_end_time, has_shown_stamina_tutorial
 
     player_score = 0.0
     stamina_current = 1
@@ -83,6 +87,9 @@ def start_game():
     reset_player_position()
     update_score_surface()
     spawn_egg()
+    show_stamina_tutorial = not has_shown_stamina_tutorial
+    has_shown_stamina_tutorial = True
+    stamina_tutorial_end_time = pygame.time.get_ticks() + 10000
 
 
 def draw_centered_text(text, font, y, color="black"):
@@ -214,6 +221,20 @@ def draw_game_over_screen():
     draw_centered_text("The next run starts immediately from a clean slate", small_font, 315, "#e9e9e9")
 
 
+def draw_stamina_tutorial():
+    tutorial_rect = pygame.Rect(14, 54, 332, 92)
+    draw_panel(tutorial_rect, fill_color=(18, 18, 18, 225), border_color="#ffd86b")
+    pygame.draw.rect(
+        screen,
+        "#ffd86b",
+        pygame.Rect(14, 14, STAMINA_BAR_WIDTH * 3 + STAMINA_BAR_GAP * 2 + 8, 26),
+        2,
+        border_radius=8,
+    )
+    draw_centered_text("These boxes are stamina", small_font, 78, "white")
+    draw_centered_text("Jumping uses one. Standing on the ground refills them.", small_font, 106, "#e9e9e9")
+
+
 while running:
     # Poll for events
     for event in pygame.event.get():
@@ -265,6 +286,10 @@ while running:
         if player_rect.bottom == GROUND_Y or is_player_directly_above_egg():
             player_score += get_score_step()/5
             update_score_surface()
+        if show_stamina_tutorial and pygame.time.get_ticks() <= stamina_tutorial_end_time:
+            draw_stamina_tutorial()
+        else:
+            show_stamina_tutorial = False
         # When player collides with enemy, game ends
         if egg_rect.colliderect(player_rect):
             game_over_score = int(player_score)
