@@ -15,7 +15,8 @@ clock = pygame.time.Clock()
 running = True  # Pygame main loop, kills pygames when False
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 400
-MIN_EGG_DISTANCE = SCREEN_WIDTH/3
+MIN_EGG_DISTANCE = int(SCREEN_WIDTH * 2 / 3)
+MAX_EGG_DISTANCE = int(SCREEN_WIDTH * 4 / 3)
 player_score = 0.0
 high_score = 0
 game_over_score = 0
@@ -88,9 +89,9 @@ selected_menu_option_indices = {
 # Load level assets
 SKY_SURF = pygame.image.load("graphics/level/sky.png").convert()
 GROUND_SURF = pygame.image.load("graphics/level/ground.png").convert()
-game_font = pygame.font.Font(pygame.font.get_default_font(), 50)
-title_font = pygame.font.Font(pygame.font.get_default_font(), 64)
-body_font = pygame.font.Font(pygame.font.get_default_font(), 28)
+game_font = pygame.font.Font(pygame.font.get_default_font(), 42)
+title_font = pygame.font.Font(pygame.font.get_default_font(), 52)
+body_font = pygame.font.Font(pygame.font.get_default_font(), 22)
 menu_label_font = pygame.font.Font(pygame.font.get_default_font(), 22)
 small_font = pygame.font.Font(pygame.font.get_default_font(), 15)
 score_surf = game_font.render(f"SCORE: {player_score}", False, "Black")
@@ -102,18 +103,19 @@ score_multiplier_rect = score_multiplier_surf.get_rect(center=(600, 78))
 player_surf = pygame.image.load("graphics/player/player_walk_1.png").convert_alpha()
 player_rect = player_surf.get_rect(bottomleft=(25, GROUND_Y))
 egg_surf = pygame.image.load("graphics/egg/egg_1.png").convert_alpha()
+normal_egg_surf = pygame.transform.scale(egg_surf,(int(egg_surf.get_width()*0.3),int(egg_surf.get_height()*0.3)))
 big_egg_surf = pygame.transform.scale(
-    egg_surf,
-    (int(egg_surf.get_width() * 1.6), int(egg_surf.get_height() * 1.6)),
+    normal_egg_surf,
+    (int(normal_egg_surf.get_width() * 1.6), int(normal_egg_surf.get_height() * 1.6)),
 )
 huge_egg_surf = pygame.transform.scale(
-    egg_surf,
-    (int(egg_surf.get_width() * 2.5), int(egg_surf.get_height() * 2.5)),)
+    normal_egg_surf,
+    (int(normal_egg_surf.get_width() * 2.5), int(normal_egg_surf.get_height() * 2.5)),)
 
 eggs = []
-egg_spawn_counter = 0
-egg_rect = egg_surf.get_rect(bottomleft=(800, GROUND_Y))
-current_egg_surf = egg_surf
+egg_rect = normal_egg_surf.get_rect(bottomleft=(800, GROUND_Y))
+current_egg_surf = normal_egg_surf
+next_egg_spawn_time = pygame.time.get_ticks()
 game_start_time = pygame.time.get_ticks()
 
 times_i_jump = 0
@@ -131,18 +133,20 @@ def start_game():
     global game_state, game_over_score, show_stamina_tutorial
     global stamina_tutorial_end_time, has_shown_stamina_tutorial
     global selected_stamina_recovery_frames, selected_jump_start_speed
-    global selected_stamina_cap
+    global selected_stamina_cap, eggs, next_egg_spawn_time
 
     player_score = 0.0
     stamina_current = 1
     stamina_recovery_counter = 0
     game_over_score = 0
+    eggs = []
     apply_selected_debuffs()
     game_state = "playing"
     game_start_time = pygame.time.get_ticks()
     reset_player_position()
     update_score_surface()
     spawn_egg()
+    next_egg_spawn_time = pygame.time.get_ticks() + get_next_egg_spawn_delay()
     show_stamina_tutorial = not has_shown_stamina_tutorial
     has_shown_stamina_tutorial = True
     stamina_tutorial_end_time = pygame.time.get_ticks() + 10000
@@ -233,9 +237,42 @@ def spawn_egg():
     elif seed > 1-oversized_egg_chance and get_max_stamina() >= 2:
         current_egg_surf = huge_egg_surf
     else:
-        current_egg_surf = egg_surf
+        current_egg_surf = normal_egg_surf
 
-    egg_rect = current_egg_surf.get_rect(bottomleft=(800, GROUND_Y))
+    egg_rect = current_egg_surf.get_rect(bottomleft=(SCREEN_WIDTH, GROUND_Y))
+    eggs.append({"surf": current_egg_surf, "rect": egg_rect})
+
+
+def get_next_egg_spawn_delay():
+    egg_gap_distance = random.randint(MIN_EGG_DISTANCE, MAX_EGG_DISTANCE)
+    egg_speed_per_second = max(get_game_speed() * 60, 1)
+    base_delay = int((egg_gap_distance / egg_speed_per_second) * 1000)
+    jitter = random.randint(-140, 140)
+
+    return max(450, base_delay + jitter)
+
+
+def update_eggs():
+    global next_egg_spawn_time, eggs, current_egg_surf, egg_rect
+
+    now = pygame.time.get_ticks()
+
+    if now >= next_egg_spawn_time:
+        spawn_egg()
+        next_egg_spawn_time = now + get_next_egg_spawn_delay()
+
+    egg_speed = get_game_speed()
+    updated_eggs = []
+    for egg in eggs:
+        egg["rect"].x -= egg_speed
+        if egg["rect"].right > 0:
+            updated_eggs.append(egg)
+
+    eggs = updated_eggs
+    if eggs:
+        last_egg = eggs[-1]
+        current_egg_surf = last_egg["surf"]
+        egg_rect = last_egg["rect"]
 
 
 def update_score_surface():
@@ -317,7 +354,10 @@ def get_score_step():
 def is_player_directly_above_egg():
     # detects if the player is directly above the egg
     # - you will know why we need this later
-    return player_rect.centerx >= egg_rect.left and player_rect.centerx <= egg_rect.right
+    return any(
+        player_rect.centerx >= egg["rect"].left and player_rect.centerx <= egg["rect"].right
+        for egg in eggs
+    )
 
 
 def draw_intro_screen():
@@ -326,9 +366,12 @@ def draw_intro_screen():
 
     draw_panel(MENU_PANEL_RECT)
 
-    draw_centered_text("DINO DASH", title_font, 62, "white")
+    draw_centered_text("BULL IN A CHINA SHOP", title_font, 62, "white")
     draw_centered_text("Press Enter or click to configure your debuffs", body_font, 152, "#d7f3ff")
-    draw_centered_text("Avoid the eggs and keep yourself alive", small_font, 205, "#e9e9e9")
+    draw_centered_text("You have been chased into a China shop", small_font, 180, "#e9e9e9")
+    draw_centered_text("But if you run into a piece of China", small_font, 200, "#e9e9e9")
+    draw_centered_text("You would be jumped by two people instead of one", small_font, 220, "#e9e9e9")
+    draw_centered_text("So try to stay alive by not touching any of them", small_font, 240, "#e9e9e9")
     draw_centered_text(f"Historical high: {high_score}", body_font, 270, "#ffd86b")
     draw_centered_text("The next screen lets you pick your run penalties", small_font, 315, "#e9e9e9")
 
@@ -463,11 +506,10 @@ while running:
         screen.blit(score_multiplier_surf, score_multiplier_rect)
         draw_stamina_bar()
 
-        # Adjust egg's horizontal location then blit it
-        egg_rect.x -= get_game_speed()
-        if egg_rect.right <= 0:
-            spawn_egg()
-        screen.blit(current_egg_surf, egg_rect)
+        # Update egg positions and spawn new ones with a variable delay
+        update_eggs()
+        for egg in eggs:
+            screen.blit(egg["surf"], egg["rect"])
 
         # Adjust player's vertical location then blit it
         players_gravity_speed += 1
@@ -485,7 +527,7 @@ while running:
         else:
             show_stamina_tutorial = False
         # When player collides with enemy, game ends
-        if egg_rect.colliderect(player_rect):
+        if any(egg["rect"].colliderect(player_rect) for egg in eggs):
             game_over_score = get_adjusted_final_score(player_score)
             high_score = max(high_score, game_over_score)
             game_state = "game_over"
