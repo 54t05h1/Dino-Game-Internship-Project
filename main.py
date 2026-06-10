@@ -62,7 +62,7 @@ selected_stamina_cap = None
 players_gravity_speed = 0  # The current speed at which the player falls
 
 debuff_menu_rows = [
-    {
+    { # stores the data for different difficulties
         "key": "stamina_recovery",
         "label": "Stamina\nrecovery",
         "options": [
@@ -87,8 +87,8 @@ debuff_menu_rows = [
         "options": [
             {"label": "None", "detail": "No cap", "value": None},
             {"label": "7 blocks", "detail": "Cap 7", "value": 7},
-            {"label": "4 blocks", "detail": "Cap 4", "value": 4},
-            {"label": "2 blocks", "detail": "Cap 2", "value": 2},
+            {"label": "5 blocks", "detail": "Cap 5", "value": 5},
+            {"label": "3 blocks", "detail": "Cap 3", "value": 3},
         ],
     },
 ]
@@ -149,7 +149,7 @@ PLAYER_WALK_ANIMATION_FRAMES = 10
 
 def reset_player_position():
     global player_rect, players_gravity_speed, times_i_jump, player_walk_frame, player_walk_frame_timer
-
+    #at the beginning of each round, reset the plauers position
     player_rect.bottomleft = (25, GROUND_Y)
     players_gravity_speed = 0
     times_i_jump = 0
@@ -225,18 +225,22 @@ def get_adjusted_final_score(base_score):
     return int(round(base_score * get_final_score_multiplier()))
 
 def draw_text(text,font,x,y,color = "black"):
+    # a general function for drawing text
     text_surf = font.render(text, True, color)
     text_rect = text_surf.get_rect(center=(x, y))
     screen.blit(text_surf, text_rect)
 
 
 def draw_left_text(text, font, x, y, color="black"):
+    # when the text is aligned to the left
     text_surf = font.render(text, True, color)
     text_rect = text_surf.get_rect(midleft=(x, y))
     screen.blit(text_surf, text_rect)
 
 
 def draw_left_multiline_text(text, font, x, y, color="black", line_gap=2):
+    # when the text is too long and requires multiline
+    # pygame does not have an existing method which supports this feature
     lines = text.split("\n")
     line_surfs = [font.render(line, True, color) for line in lines]
     total_height = sum(surf.get_height() for surf in line_surfs)
@@ -257,6 +261,7 @@ def draw_centered_text(text, font, y, color="black"):
 
 
 def draw_panel(rect, fill_color=(20, 20, 20, 210), border_color=(255, 255, 255)):
+    # drawing the panel
     panel = pygame.Surface(rect.size, pygame.SRCALPHA)
     panel.fill(fill_color)
     screen.blit(panel, rect.topleft)
@@ -284,6 +289,7 @@ def spawn_egg():
 
 
 def get_next_egg_spawn_delay():
+    # randomized distances between adjacent eggs - (optimized enemy spawn logic as required by the project)
     egg_gap_distance = random.randint(MIN_EGG_DISTANCE, MAX_EGG_DISTANCE)
     egg_speed_per_second = max(get_game_speed() * 60, 1)
     base_delay = int((egg_gap_distance / egg_speed_per_second) * 1000)
@@ -294,7 +300,8 @@ def get_next_egg_spawn_delay():
 
 def update_eggs():
     global next_egg_spawn_time, eggs, current_egg_surf, egg_rect
-
+    # since there could be multiple eggs on screen simultaneously,
+    # I need to keep track of all the eggs on the screen at all times
     now = pygame.time.get_ticks()
 
     if now >= next_egg_spawn_time:
@@ -331,6 +338,7 @@ def update_score_surface():
 
 
 def get_max_stamina():
+    # the stamina is capped by the chosen debuffs as well as the current score of the game
     score_for_stamina = max(int(player_score), 9)
     natural_max = max(1, int((math.log(score_for_stamina, 9)**2)))
     if selected_stamina_cap is None:
@@ -347,6 +355,7 @@ def draw_button_label(rect, title, detail, selected):
 
 
 def draw_stamina_bar():
+    '''displays the stamina bar at all times'''
     max_stamina = get_max_stamina()
     stamina_x = STAMINA_BAR_X
 
@@ -364,6 +373,7 @@ def draw_stamina_bar():
 
 
 def recharge_stamina():
+    '''when the player is on the ground, stamina is recharged at a chosen pace'''
     global stamina_current, stamina_recovery_counter
 
     max_stamina = get_max_stamina()
@@ -381,7 +391,8 @@ def recharge_stamina():
 
 
 def get_game_speed():
-    # new feature: the game speeds up proportional to log the score
+    '''game speed increases as the time elapsed in the game increases'''
+    # the speed is proportional to the log of the time elapsed
     score_for_speed = max(pygame.time.get_ticks() - game_start_time, 1)
     return max(1, int(5 + (4 * math.log(score_for_speed, 100))))
 
@@ -417,6 +428,7 @@ def draw_intro_screen():
 
 
 def draw_debuff_menu_screen():
+    '''the debuffs can be chosen through an interface that is selectable by simply clicking buttons'''
     screen.blit(SKY_SURF, (0, 0))
     screen.blit(GROUND_SURF, (0, GROUND_Y))
 
@@ -467,6 +479,9 @@ def draw_game_over_pause_screen():
         broken_egg_image = pygame.transform.scale(egg_broken_surf, game_over_broken_egg_rect.size)
         screen.blit(broken_egg_image, game_over_broken_egg_rect)
 
+'''
+When the player loses, the screen zooms into the player and plays a given set of animation and sound effects
+'''
 
 def get_game_over_zoom_crop_rect():
     if game_over_zoom_surface is None:
@@ -539,6 +554,7 @@ def handle_menu_click(position):
 
 
 def draw_stamina_tutorial():
+    '''showing the explanation for stamina when the game was first played'''
     tutorial_rect = pygame.Rect(14, 54, 290, 92)
     draw_panel(tutorial_rect, fill_color=(18, 18, 18, 225), border_color="#8f8f8f")
     pygame.draw.rect(
@@ -554,6 +570,8 @@ def draw_stamina_tutorial():
 
 
 def get_player_surface():
+    # simulates the walking of this player
+    # also plays the animation which switches between player 1 and player 2
     global player_walk_frame, player_walk_frame_timer
 
     if player_rect.bottom < GROUND_Y:
