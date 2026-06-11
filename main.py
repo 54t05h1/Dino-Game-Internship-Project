@@ -20,7 +20,7 @@ running = True  # Pygame main loop, kills pygames when False
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 400
 MIN_EGG_DISTANCE = int(SCREEN_WIDTH * 2 / 3)
-MAX_EGG_DISTANCE = int(SCREEN_WIDTH * 4 / 3)
+MAX_EGG_DISTANCE = int(SCREEN_WIDTH * 5.5 / 3)
 player_score = 0.0
 high_score = 0
 game_over_score = 0
@@ -118,13 +118,16 @@ player_jump_surf = pygame.image.load("graphics/player/player_jump.png").convert_
 player_surf = player_walk_1_surf
 player_rect = player_surf.get_rect(bottomleft=(25, GROUND_Y))
 egg_surf = pygame.image.load("graphics/egg/egg_1.png").convert_alpha()
+# this image is taken from wikipedia in the public domain
 egg_crack_surf = pygame.image.load("graphics/egg/crack.png").convert_alpha()
+# this image was created by myself (and apparently I was unable to maintain a good resolution when zoomed in)
 egg_broken_surf = pygame.image.load("graphics/egg/egg_broken.png").convert_alpha()
+# photoshoped this image myself
 try:
     failure_sound = pygame.mixer.Sound("sfx/failure_audio.MP3")
 except pygame.error:
     failure_sound = None
-normal_egg_surf = pygame.transform.scale(egg_surf,(int(egg_surf.get_width()*0.3),int(egg_surf.get_height()*0.3)))
+normal_egg_surf = pygame.transform.scale(egg_surf,(int(egg_surf.get_width()*0.22),int(egg_surf.get_height()*0.22)))
 egg_crack_surf = pygame.transform.scale(egg_crack_surf, (int(normal_egg_surf.get_height()*1.2),int(normal_egg_surf.get_height()*1.2)))
 egg_broken_surf = pygame.transform.scale(egg_broken_surf, normal_egg_surf.get_size())
 big_egg_surf = pygame.transform.scale(
@@ -599,6 +602,7 @@ while running:
                 or event.type == pygame.MOUSEBUTTONDOWN
             ):
                 if stamina_current > 0:
+                    players_gravity_speed = selected_jump_start_speed + 2*times_i_jump
                     players_gravity_speed = selected_jump_start_speed + 2*times_i_jump
                     stamina_current -= 1
                     times_i_jump += 1
